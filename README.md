@@ -1,15 +1,15 @@
-# Banu Herbals Expo Spin Wheel
+# Banu Herbals Spin Wheel
 
-A responsive Next.js landing page for Banu Herbals expo visitors to scan, submit details, spin a reward wheel, and forward leads to an n8n webhook.
+A responsive Next.js landing page for Banu Herbals visitors to scan, submit details, spin a reward wheel, and forward leads to an n8n webhook.
 
 ## Features
 
-- Mobile-first Expo spin wheel UI
+- Mobile-first spin wheel UI
 - Smooth animations with Framer Motion
 - Configurable reward probabilities
 - WhatsApp opt-in capture
 - n8n webhook integration for PostgreSQL, WhatsApp Cloud, Meta Conversion API
-- Green herbal theme optimized for expo use
+- Green herbal theme optimized for visitor engagement
 
 ## Quick Start
 
