@@ -2,11 +2,13 @@ import { NextResponse } from 'next/server'
 
 export async function POST(request: Request) {
   const webhookUrl = process.env.N8N_WEBHOOK_URL
-  if (!webhookUrl) {
-    return NextResponse.json({ error: 'Missing N8N_WEBHOOK_URL environment variable' }, { status: 500 })
-  }
-
   const payload = await request.json()
+
+  // If no webhook URL is set or it's a placeholder, just return success
+  if (!webhookUrl || webhookUrl.includes('example.com') || webhookUrl.includes('YOUR_N8N')) {
+    console.log('Webhook URL not configured. Entry would be saved:', payload)
+    return NextResponse.json({ status: 'ok', message: 'Entry received. Webhook not configured yet.' })
+  }
 
   try {
     const response = await fetch(webhookUrl, {
