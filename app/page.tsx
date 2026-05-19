@@ -16,7 +16,7 @@ export default function HomePage() {
   const [feedback, setFeedback] = useState<string>('')
 
   const heading = useMemo(() => {
-    if (stage === 'form') return 'Spin & Win at Mathukai Organic Expo'
+    if (stage === 'form') return 'Spin & Win at Banu Herbals Expo'
     if (stage === 'spin') return 'Ready to Spin?'
     return 'Congratulations 🎉'
   }, [stage])
@@ -85,7 +85,7 @@ export default function HomePage() {
                   <div className="text-xl font-semibold">🌿</div>
                 </div>
                 <div>
-                  <p className="text-sm uppercase tracking-[0.3em] text-brand-600">Mathukai Organic Expo</p>
+                  <p className="text-sm uppercase tracking-[0.3em] text-brand-600">Banu Herbals Expo</p>
                   <h1 className="mt-2 text-4xl font-bold tracking-tight text-brand-900 sm:text-5xl">
                     {heading}
                   </h1>

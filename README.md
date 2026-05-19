@@ -1,6 +1,6 @@
-# Mathukai Organic Expo Spin Wheel
+# Banu Herbals Expo Spin Wheel
 
-A responsive Next.js landing page for expo visitors to scan, submit details, spin a reward wheel, and forward leads to an n8n webhook.
+A responsive Next.js landing page for Banu Herbals expo visitors to scan, submit details, spin a reward wheel, and forward leads to an n8n webhook.
 
 ## Features
 
