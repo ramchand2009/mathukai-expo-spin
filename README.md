@@ -52,12 +52,21 @@ docker run -d --name expo-spin -p 3000:3000 \
 
 ### GitHub deployment
 
-You can push this project to GitHub and use GitHub Actions to build and publish a Docker image to GitHub Container Registry.
+Push this project to GitHub and use GitHub Actions to build and publish a Docker image to GitHub Container Registry.
 
-1. Create a GitHub repository and push your local project.
-2. The workflow at `.github/workflows/docker-publish.yml` will run on pushes to `main`.
-3. The image is published to `ghcr.io/<your-username>/<repo>/mathukai-expo-spin:latest`.
-4. In Hostinger EasyPanel, pull that image from GitHub Container Registry and run it with `N8N_WEBHOOK_URL` set.
+1. Create a new GitHub repository.
+2. Add the remote and push from your local project:
+
+   ```bash
+   cd "c:\Ramc_Project\Expo Spin wheel"
+   git remote add origin https://github.com/<your-username>/<repo>.git
+   git branch -M main
+   git push -u origin main
+   ```
+
+3. The workflow at `.github/workflows/docker-publish.yml` will run on pushes to `main`.
+4. The image will be published to `ghcr.io/<your-username>/<repo>/mathukai-expo-spin:latest`.
+5. In Hostinger EasyPanel, pull that image from GitHub Container Registry and run it with `N8N_WEBHOOK_URL` set.
 
 ### Hostinger EasyPanel Docker deployment
 
