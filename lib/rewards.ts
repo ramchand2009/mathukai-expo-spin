@@ -8,31 +8,31 @@ export const rewards: Reward[] = [
   {
     label: 'Free Lipbalm',
     probability: 20,
-    color: '#d7f6d7',
+    color: '#f97316',
   },
   {
     label: 'Free Soap Sample',
     probability: 20,
-    color: '#c3edc2',
+    color: '#facc15',
   },
   {
     label: '₹30 OFF',
     probability: 25,
-    color: '#b7e5b0',
+    color: '#60a5fa',
   },
   {
     label: 'Buy 2 Get 1',
     probability: 20,
-    color: '#97d18b',
+    color: '#34d399',
   },
   {
     label: 'Surprise Gift',
     probability: 10,
-    color: '#76b96b',
+    color: '#a855f7',
   },
   {
     label: 'Expo Combo Offer',
     probability: 5,
-    color: '#4b7f47',
+    color: '#ec4899',
   },
 ]
