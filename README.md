@@ -11,6 +11,8 @@ A responsive Next.js landing page for Banu Herbals visitors to scan, submit deta
 - Duplicate phone number prevention
 - Optional reward inventory limits
 - Password protection for the dashboard
+- Dashboard analytics for leads, pending claims, and remaining stock
+- Staff claim status tracking for each reward
 - Smooth animations with Framer Motion
 - Configurable reward probabilities
 - WhatsApp opt-in capture
@@ -117,5 +119,6 @@ npm run start
 - Set `DASHBOARD_PASSWORD` in production to protect customer data and offer controls.
 - Set an offer limit in `/dashboard` to stop that reward after the configured number of claims.
 - A mobile number can claim only once.
+- Staff can mark rewards as Pending, Claimed, or Cancelled from `/dashboard`.
 - If `DATABASE_URL` is missing, the app falls back to default/browser-local offers for testing.
 - The app saves lead data to Postgres first, then also forwards it to n8n for WhatsApp messages and Meta tracking.

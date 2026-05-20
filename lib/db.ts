@@ -57,10 +57,16 @@ async function ensureEntryTable() {
       skin_concern text not null,
       optin boolean not null default false,
       reward text not null,
+      claim_status text not null default 'pending',
       source text not null,
       entry_timestamp timestamptz not null,
       created_at timestamptz not null default now()
     )
+  `)
+
+  await client.query(`
+    alter table spin_wheel_entries
+    add column if not exists claim_status text not null default 'pending'
   `)
 
   await client.query(`
@@ -227,13 +233,15 @@ export async function getLeadEntries(limit = 500) {
   const result = await client.query<LeadEntry>(
     `
       select
+        id,
         name,
         phone,
         skin_concern,
         optin,
         reward,
         source,
-        entry_timestamp::text as timestamp
+        entry_timestamp::text as timestamp,
+        claim_status as "claimStatus"
       from spin_wheel_entries
       order by entry_timestamp desc, id desc
       limit $1
@@ -242,6 +250,42 @@ export async function getLeadEntries(limit = 500) {
   )
 
   return result.rows
+}
+
+export async function updateLeadEntryStatus(id: number, claimStatus: LeadEntry['claimStatus']) {
+  await ensureEntryTable()
+
+  if (!claimStatus || !['pending', 'claimed', 'cancelled'].includes(claimStatus)) {
+    throw new Error('Invalid claim status')
+  }
+
+  const client = getPool()
+  if (!client) throw new Error('DATABASE_URL is not configured')
+
+  const result = await client.query<LeadEntry>(
+    `
+      update spin_wheel_entries
+      set claim_status = $2
+      where id = $1
+      returning
+        id,
+        name,
+        phone,
+        skin_concern,
+        optin,
+        reward,
+        source,
+        entry_timestamp::text as timestamp,
+        claim_status as "claimStatus"
+    `,
+    [id, claimStatus]
+  )
+
+  if (!result.rows[0]) {
+    throw new Error('Entry not found')
+  }
+
+  return result.rows[0]
 }
 
 export async function clearLeadEntries() {

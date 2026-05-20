@@ -7,6 +7,7 @@ export type Reward = {
 }
 
 export type LeadEntry = {
+  id?: number
   name: string
   phone: string
   skin_concern: string
@@ -14,6 +15,7 @@ export type LeadEntry = {
   reward: string
   source: string
   timestamp: string
+  claimStatus?: 'pending' | 'claimed' | 'cancelled'
 }
 
 export const rewardsStorageKey = 'mathukai-spin-wheel-rewards'

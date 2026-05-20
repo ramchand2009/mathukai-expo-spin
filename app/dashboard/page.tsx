@@ -11,6 +11,14 @@ const blankReward: Reward = {
   inventoryLimit: null,
 }
 
+const claimStatuses: NonNullable<LeadEntry['claimStatus']>[] = ['pending', 'claimed', 'cancelled']
+
+const claimStatusLabels: Record<NonNullable<LeadEntry['claimStatus']>, string> = {
+  pending: 'Pending',
+  claimed: 'Claimed',
+  cancelled: 'Cancelled',
+}
+
 function csvValue(value: unknown) {
   return `"${String(value ?? '').replace(/"/g, '""')}"`
 }
@@ -26,6 +34,28 @@ export default function DashboardPage() {
     () => draftRewards.reduce((sum, reward) => sum + Number(reward.probability || 0), 0),
     [draftRewards]
   )
+
+  const analytics = useMemo(() => {
+    const today = new Date().toDateString()
+    const todayEntries = entries.filter(entry => new Date(entry.timestamp).toDateString() === today)
+    const claimedEntries = entries.filter(entry => entry.claimStatus === 'claimed')
+    const pendingEntries = entries.filter(entry => !entry.claimStatus || entry.claimStatus === 'pending')
+    const cancelledEntries = entries.filter(entry => entry.claimStatus === 'cancelled')
+    const limitedRewards = draftRewards.filter(reward => reward.inventoryLimit !== null && reward.inventoryLimit !== undefined)
+    const remainingStock = limitedRewards.reduce((sum, reward) => {
+      return sum + Math.max(0, Number(reward.inventoryLimit || 0) - Number(reward.claimedCount || 0))
+    }, 0)
+
+    return {
+      totalEntries: entries.length,
+      todayEntries: todayEntries.length,
+      claimedEntries: claimedEntries.length,
+      pendingEntries: pendingEntries.length,
+      cancelledEntries: cancelledEntries.length,
+      remainingStock,
+      limitedRewards: limitedRewards.length,
+    }
+  }, [draftRewards, entries])
 
   useEffect(() => {
     const loadRewards = async () => {
@@ -141,12 +171,13 @@ export default function DashboardPage() {
   }
 
   const exportEntries = () => {
-    const header = ['Name', 'Phone', 'Skin problems', 'Reward', 'Opt in', 'Source', 'Timestamp']
+    const header = ['Name', 'Phone', 'Skin problems', 'Reward', 'Claim status', 'Opt in', 'Source', 'Timestamp']
     const rows = entries.map(entry => [
       entry.name,
       entry.phone,
       entry.skin_concern,
       entry.reward,
+      claimStatusLabels[entry.claimStatus || 'pending'],
       entry.optin ? 'Yes' : 'No',
       entry.source,
       entry.timestamp,
@@ -178,6 +209,36 @@ export default function DashboardPage() {
     }
   }
 
+  const updateEntryStatus = async (entry: LeadEntry, claimStatus: NonNullable<LeadEntry['claimStatus']>) => {
+    if (!entry.id) {
+      setMessage('This entry cannot be updated because it is missing a database id.')
+      return
+    }
+
+    const previousEntries = entries
+    setEntries(current => current.map(item => (item.id === entry.id ? { ...item, claimStatus } : item)))
+
+    try {
+      const response = await fetch('/api/entries', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: entry.id, claimStatus }),
+      })
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null)
+        throw new Error(errorBody?.error || 'Could not update claim status')
+      }
+
+      const body = await response.json()
+      setEntries(current => current.map(item => (item.id === entry.id ? body.entry : item)))
+      setMessage(`Marked ${entry.name}'s reward as ${claimStatusLabels[claimStatus]}.`)
+    } catch (error) {
+      setEntries(previousEntries)
+      setMessage(error instanceof Error ? error.message : 'Could not update claim status.')
+    }
+  }
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-brand-50 via-white to-brand-100 px-4 py-8 text-brand-900 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl space-y-6">
@@ -193,6 +254,56 @@ export default function DashboardPage() {
             Open spin wheel
           </Link>
         </header>
+
+        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-3xl border border-brand-200 bg-white p-5 shadow-lg shadow-brand-200/20">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-600">Total leads</p>
+            <p className="mt-3 text-3xl font-bold text-brand-900">{analytics.totalEntries}</p>
+          </div>
+          <div className="rounded-3xl border border-brand-200 bg-white p-5 shadow-lg shadow-brand-200/20">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-600">Today</p>
+            <p className="mt-3 text-3xl font-bold text-brand-900">{analytics.todayEntries}</p>
+          </div>
+          <div className="rounded-3xl border border-brand-200 bg-white p-5 shadow-lg shadow-brand-200/20">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-600">Pending claims</p>
+            <p className="mt-3 text-3xl font-bold text-brand-900">{analytics.pendingEntries}</p>
+          </div>
+          <div className="rounded-3xl border border-brand-200 bg-white p-5 shadow-lg shadow-brand-200/20">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-600">Remaining stock</p>
+            <p className="mt-3 text-3xl font-bold text-brand-900">{analytics.remainingStock}</p>
+            <p className="mt-1 text-xs text-brand-700">{analytics.limitedRewards} limited offers</p>
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-brand-200 bg-white p-5 shadow-xl shadow-brand-200/30 sm:p-6">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-xl font-bold text-brand-900">Reward performance</h2>
+            <p className="text-sm text-brand-700">
+              Claimed count is based on submitted rewards. Staff claim status is tracked separately below.
+            </p>
+          </div>
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {draftRewards.map(reward => {
+              const remaining =
+                reward.inventoryLimit === null || reward.inventoryLimit === undefined
+                  ? 'Unlimited'
+                  : Math.max(0, Number(reward.inventoryLimit) - Number(reward.claimedCount || 0))
+
+              return (
+                <div className="rounded-2xl border border-brand-100 bg-brand-50/70 p-4" key={reward.label}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-brand-900">{reward.label}</p>
+                      <p className="mt-1 text-sm text-brand-700">Won: {reward.claimedCount || 0}</p>
+                    </div>
+                    <span className="h-4 w-4 rounded-full" style={{ backgroundColor: reward.color }} />
+                  </div>
+                  <p className="mt-3 text-sm font-semibold text-brand-800">Remaining: {remaining}</p>
+                </div>
+              )
+            })}
+          </div>
+        </section>
 
         <section className="rounded-3xl border border-brand-200 bg-white p-5 shadow-xl shadow-brand-200/30 sm:p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -327,23 +438,39 @@ export default function DashboardPage() {
                   <th className="px-3 py-2">Phone</th>
                   <th className="px-3 py-2">Skin problems</th>
                   <th className="px-3 py-2">Reward</th>
+                  <th className="px-3 py-2">Claim</th>
                   <th className="px-3 py-2">Time</th>
                 </tr>
               </thead>
               <tbody>
                 {loadingEntries ? (
                   <tr>
-                    <td className="rounded-2xl bg-brand-50/70 px-3 py-6 text-center text-brand-700" colSpan={5}>
+                    <td className="rounded-2xl bg-brand-50/70 px-3 py-6 text-center text-brand-700" colSpan={6}>
                       Loading customer entries...
                     </td>
                   </tr>
                 ) : entries.length ? (
                   entries.slice(0, 25).map(entry => (
-                    <tr className="bg-brand-50/70" key={`${entry.phone}-${entry.timestamp}`}>
+                    <tr className="bg-brand-50/70" key={entry.id || `${entry.phone}-${entry.timestamp}`}>
                       <td className="rounded-l-2xl px-3 py-3 font-semibold text-brand-900">{entry.name}</td>
                       <td className="px-3 py-3 text-brand-800">{entry.phone}</td>
                       <td className="px-3 py-3 text-brand-800">{entry.skin_concern}</td>
                       <td className="px-3 py-3 font-semibold text-brand-900">{entry.reward}</td>
+                      <td className="px-3 py-3">
+                        <select
+                          className="rounded-2xl border border-brand-200 bg-white px-3 py-2 text-sm font-semibold text-brand-800 outline-none ring-brand-400 transition focus:ring-2"
+                          value={entry.claimStatus || 'pending'}
+                          onChange={event =>
+                            updateEntryStatus(entry, event.target.value as NonNullable<LeadEntry['claimStatus']>)
+                          }
+                        >
+                          {claimStatuses.map(status => (
+                            <option key={status} value={status}>
+                              {claimStatusLabels[status]}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
                       <td className="rounded-r-2xl px-3 py-3 text-brand-700">
                         {new Date(entry.timestamp).toLocaleString()}
                       </td>
@@ -351,7 +478,7 @@ export default function DashboardPage() {
                   ))
                 ) : (
                   <tr>
-                    <td className="rounded-2xl bg-brand-50/70 px-3 py-6 text-center text-brand-700" colSpan={5}>
+                    <td className="rounded-2xl bg-brand-50/70 px-3 py-6 text-center text-brand-700" colSpan={6}>
                       No customer entries saved yet.
                     </td>
                   </tr>
