@@ -154,7 +154,7 @@ export default function DashboardPage() {
             {draftRewards.map((reward, index) => (
               <div
                 className="grid gap-3 rounded-2xl border border-brand-100 bg-brand-50/60 p-4 sm:grid-cols-[1fr_120px_96px_auto] sm:items-end"
-                key={`${reward.label}-${index}`}
+                key={index}
               >
                 <label className="space-y-1">
                   <span className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-600">Offer</span>
