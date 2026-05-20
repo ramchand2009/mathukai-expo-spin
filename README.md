@@ -10,6 +10,7 @@ A responsive Next.js landing page for Banu Herbals visitors to scan, submit deta
 - Shared Postgres-backed customer and reward entries
 - Duplicate phone number prevention
 - Optional reward inventory limits
+- Password protection for the dashboard
 - Smooth animations with Framer Motion
 - Configurable reward probabilities
 - WhatsApp opt-in capture
@@ -30,6 +31,8 @@ A responsive Next.js landing page for Banu Herbals visitors to scan, submit deta
    N8N_WEBHOOK_URL=https://YOUR_N8N_DOMAIN/webhook/expo-spin
    DATABASE_URL=postgres://USER:PASSWORD@HOST:PORT/DATABASE
    DATABASE_SSL=false
+   DASHBOARD_USERNAME=admin
+   DASHBOARD_PASSWORD=change-this-password
    ```
 
 3. Run the project:
@@ -45,6 +48,8 @@ A responsive Next.js landing page for Banu Herbals visitors to scan, submit deta
 - `N8N_WEBHOOK_URL` - your n8n webhook endpoint for lead capture.
 - `DATABASE_URL` - Postgres connection string used by `/dashboard` to save dynamic spin wheel offers globally.
 - `DATABASE_SSL` - set to `true` only when your Postgres connection requires SSL.
+- `DASHBOARD_USERNAME` - dashboard login username. Defaults to `admin` if omitted.
+- `DASHBOARD_PASSWORD` - dashboard login password. If omitted, dashboard protection is disabled.
 
 ## Deploy
 
@@ -75,6 +80,8 @@ Push this project to GitHub and use your hosting workflow to build and deploy th
    N8N_WEBHOOK_URL=https://YOUR_N8N_DOMAIN/webhook/expo-spin
    DATABASE_URL=postgres://USER:PASSWORD@HOST:PORT/DATABASE
    DATABASE_SSL=false
+   DASHBOARD_USERNAME=admin
+   DASHBOARD_PASSWORD=change-this-password
    ```
 
 4. Expose port `3000` and configure site routing to the app.
@@ -107,6 +114,7 @@ npm run start
 ## Notes
 
 - The dashboard saves offers and reads customer entries from Postgres when `DATABASE_URL` is configured.
+- Set `DASHBOARD_PASSWORD` in production to protect customer data and offer controls.
 - Set an offer limit in `/dashboard` to stop that reward after the configured number of claims.
 - A mobile number can claim only once.
 - If `DATABASE_URL` is missing, the app falls back to default/browser-local offers for testing.
