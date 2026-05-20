@@ -161,9 +161,6 @@ export default function SpinWheel({ rewards, onComplete }: SpinWheelProps) {
                       >
                         {segment.reward.label}
                       </span>
-                      <span className="mt-0.5 text-[7px] font-semibold leading-none text-slate-700">
-                        Chance: {segment.reward.probability}%
-                      </span>
                     </div>
                   </div>
                 )
