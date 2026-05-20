@@ -23,12 +23,19 @@ export default function HomePage() {
   }, [stage])
 
   useEffect(() => {
-    const loadRewards = () => {
+    const loadRewards = async () => {
       try {
-        const savedRewards = window.localStorage.getItem(rewardsStorageKey)
-        setActiveRewards(normalizeRewards(savedRewards ? JSON.parse(savedRewards) : rewards))
+        const response = await fetch('/api/offers', { cache: 'no-store' })
+        if (!response.ok) throw new Error('Could not load offers')
+        const body = await response.json()
+        setActiveRewards(normalizeRewards(body.rewards))
       } catch {
-        setActiveRewards(rewards)
+        try {
+          const savedRewards = window.localStorage.getItem(rewardsStorageKey)
+          setActiveRewards(normalizeRewards(savedRewards ? JSON.parse(savedRewards) : rewards))
+        } catch {
+          setActiveRewards(rewards)
+        }
       }
     }
 

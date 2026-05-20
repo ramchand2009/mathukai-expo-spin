@@ -5,10 +5,12 @@ A responsive Next.js landing page for Banu Herbals visitors to scan, submit deta
 ## Features
 
 - Mobile-first spin wheel UI
+- Dashboard for dynamic spin wheel offers
+- Shared Postgres-backed offer configuration
 - Smooth animations with Framer Motion
 - Configurable reward probabilities
 - WhatsApp opt-in capture
-- n8n webhook integration for PostgreSQL, WhatsApp Cloud, Meta Conversion API
+- n8n webhook integration for lead capture
 - Green herbal theme optimized for visitor engagement
 
 ## Quick Start
@@ -19,10 +21,12 @@ A responsive Next.js landing page for Banu Herbals visitors to scan, submit deta
    npm install
    ```
 
-2. Create `.env.local` with your webhook URL:
+2. Create `.env.local` with your webhook and database URLs:
 
    ```env
    N8N_WEBHOOK_URL=https://YOUR_N8N_DOMAIN/webhook/expo-spin
+   DATABASE_URL=postgres://USER:PASSWORD@HOST:PORT/DATABASE
+   DATABASE_SSL=false
    ```
 
 3. Run the project:
@@ -35,7 +39,9 @@ A responsive Next.js landing page for Banu Herbals visitors to scan, submit deta
 
 ## Environment Variables
 
-- `N8N_WEBHOOK_URL` — your n8n webhook endpoint for lead capture.
+- `N8N_WEBHOOK_URL` - your n8n webhook endpoint for lead capture.
+- `DATABASE_URL` - Postgres connection string used by `/dashboard` to save dynamic spin wheel offers globally.
+- `DATABASE_SSL` - set to `true` only when your Postgres connection requires SSL.
 
 ## Deploy
 
@@ -47,39 +53,28 @@ This project is ready for Docker deployment, which is ideal for Hostinger EasyPa
 docker build -t mathukai-expo-spin .
 docker run -d --name expo-spin -p 3000:3000 \
   -e N8N_WEBHOOK_URL="https://YOUR_N8N_DOMAIN/webhook/expo-spin" \
+  -e DATABASE_URL="postgres://USER:PASSWORD@HOST:PORT/DATABASE" \
+  -e DATABASE_SSL="false" \
   mathukai-expo-spin
 ```
 
 ### GitHub deployment
 
-Push this project to GitHub and use GitHub Actions to build and publish a Docker image to GitHub Container Registry.
-
-1. Create a new GitHub repository.
-2. Add the remote and push from your local project:
-
-   ```bash
-   cd "c:\Ramc_Project\Expo Spin wheel"
-   git remote add origin https://github.com/<your-username>/<repo>.git
-   git branch -M main
-   git push -u origin main
-   ```
-
-3. The workflow at `.github/workflows/docker-publish.yml` will run on pushes to `main`.
-4. The image will be published to `ghcr.io/<your-username>/<repo>/mathukai-expo-spin:latest`.
-5. In Hostinger EasyPanel, pull that image from GitHub Container Registry and run it with `N8N_WEBHOOK_URL` set.
+Push this project to GitHub and use your hosting workflow to build and deploy the app.
 
 ### Hostinger EasyPanel Docker deployment
 
 1. Upload the repository or connect the Git repo.
 2. Use the included `Dockerfile` to build the image.
-3. Set environment variable:
+3. Set environment variables:
 
    ```env
    N8N_WEBHOOK_URL=https://YOUR_N8N_DOMAIN/webhook/expo-spin
+   DATABASE_URL=postgres://USER:PASSWORD@HOST:PORT/DATABASE
+   DATABASE_SSL=false
    ```
 
 4. Expose port `3000` and configure site routing to the app.
-
 5. For `expo.mathukaiorganic.store`, point your subdomain DNS to the VPS IP and configure EasyPanel to route that domain to the container.
 
 ### Subdomain setup
@@ -98,12 +93,15 @@ npm run start
 
 ## Project Structure
 
-- `app/` — Next.js App Router pages and layout
-- `components/` — reusable UI components
-- `app/api/submit/route.ts` — webhook proxy endpoint
-- `lib/rewards.ts` — reward probability configuration
+- `app/` - Next.js App Router pages and layout
+- `components/` - reusable UI components
+- `app/api/offers/route.ts` - Postgres-backed dynamic offer endpoint
+- `app/api/submit/route.ts` - webhook proxy endpoint
+- `lib/db.ts` - Postgres connection and offer persistence
+- `lib/rewards.ts` - default reward configuration and validation helpers
 
 ## Notes
 
-- The app sends lead data to n8n and relies on n8n workflows for database writes, WhatsApp messages, and Meta tracking.
-- Update reward probabilities in `lib/rewards.ts`.
+- The dashboard saves offers to Postgres when `DATABASE_URL` is configured.
+- If `DATABASE_URL` is missing, the app falls back to default/browser-local offers for testing.
+- The app sends lead data to n8n and relies on n8n workflows for permanent lead storage, WhatsApp messages, and Meta tracking.

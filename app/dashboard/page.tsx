@@ -18,6 +18,7 @@ export default function DashboardPage() {
   const [draftRewards, setDraftRewards] = useState<Reward[]>(rewards)
   const [entries, setEntries] = useState<LeadEntry[]>([])
   const [message, setMessage] = useState('')
+  const [saving, setSaving] = useState(false)
 
   const totalChance = useMemo(
     () => draftRewards.reduce((sum, reward) => sum + Number(reward.probability || 0), 0),
@@ -25,12 +26,23 @@ export default function DashboardPage() {
   )
 
   useEffect(() => {
-    try {
-      const savedRewards = window.localStorage.getItem(rewardsStorageKey)
-      setDraftRewards(normalizeRewards(savedRewards ? JSON.parse(savedRewards) : rewards))
-    } catch {
-      setDraftRewards(rewards)
+    const loadRewards = async () => {
+      try {
+        const response = await fetch('/api/offers', { cache: 'no-store' })
+        if (!response.ok) throw new Error('Could not load offers')
+        const body = await response.json()
+        setDraftRewards(normalizeRewards(body.rewards))
+      } catch {
+        try {
+          const savedRewards = window.localStorage.getItem(rewardsStorageKey)
+          setDraftRewards(normalizeRewards(savedRewards ? JSON.parse(savedRewards) : rewards))
+        } catch {
+          setDraftRewards(rewards)
+        }
+      }
     }
+
+    loadRewards()
 
     try {
       const savedEntries = window.localStorage.getItem(entriesStorageKey)
@@ -64,17 +76,43 @@ export default function DashboardPage() {
     setMessage('')
   }
 
-  const resetRewards = () => {
+  const resetRewards = async () => {
     setDraftRewards(rewards)
     window.localStorage.setItem(rewardsStorageKey, JSON.stringify(rewards))
-    setMessage('Default offers restored.')
+    setMessage('Default offers restored. Click Save offers to publish them to all devices.')
   }
 
-  const saveRewards = () => {
+  const saveRewards = async () => {
     const normalized = normalizeRewards(draftRewards)
-    window.localStorage.setItem(rewardsStorageKey, JSON.stringify(normalized))
-    setDraftRewards(normalized)
-    setMessage('Offers saved. Refresh the spin page or open it in this browser to use them.')
+    setSaving(true)
+    setMessage('')
+
+    try {
+      const response = await fetch('/api/offers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rewards: normalized }),
+      })
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null)
+        throw new Error(errorBody?.error || 'Could not save offers')
+      }
+
+      const body = await response.json()
+      const savedRewards = normalizeRewards(body.rewards)
+      window.localStorage.setItem(rewardsStorageKey, JSON.stringify(savedRewards))
+      setDraftRewards(savedRewards)
+      setMessage('Offers saved globally. Mobile and desktop will load this latest wheel.')
+    } catch (error) {
+      window.localStorage.setItem(rewardsStorageKey, JSON.stringify(normalized))
+      setDraftRewards(normalized)
+      setMessage(
+        `Saved in this browser only. ${error instanceof Error ? error.message : 'Database save failed.'}`
+      )
+    } finally {
+      setSaving(false)
+    }
   }
 
   const exportEntries = () => {
@@ -142,10 +180,11 @@ export default function DashboardPage() {
                 Reset
               </button>
               <button
-                className="rounded-full bg-brand-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-800"
+                className="rounded-full bg-brand-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:bg-brand-300"
+                disabled={saving}
                 onClick={saveRewards}
               >
-                Save offers
+                {saving ? 'Saving...' : 'Save offers'}
               </button>
             </div>
           </div>
