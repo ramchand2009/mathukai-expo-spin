@@ -1,10 +1,10 @@
 'use client'
 
 import { AnimatePresence, motion } from 'framer-motion'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import LeadForm, { FormValues } from '../components/LeadForm'
 import SpinWheel from '../components/SpinWheel'
-import { rewards } from '../lib/rewards'
+import { entriesStorageKey, LeadEntry, normalizeRewards, rewards, rewardsStorageKey } from '../lib/rewards'
 
 const sourceTag = 'expo_may_2026'
 
@@ -12,14 +12,31 @@ export default function HomePage() {
   const [stage, setStage] = useState<'form' | 'spin' | 'result'>('form')
   const [visitor, setVisitor] = useState<FormValues | null>(null)
   const [reward, setReward] = useState<string>('')
+  const [activeRewards, setActiveRewards] = useState(rewards)
   const [status, setStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle')
   const [feedback, setFeedback] = useState<string>('')
 
   const heading = useMemo(() => {
     if (stage === 'form') return 'Spin & Win at Banu Herbals'
     if (stage === 'spin') return 'Ready to Spin?'
-    return 'Congratulations 🎉'
+    return 'Congratulations!'
   }, [stage])
+
+  useEffect(() => {
+    const loadRewards = () => {
+      try {
+        const savedRewards = window.localStorage.getItem(rewardsStorageKey)
+        setActiveRewards(normalizeRewards(savedRewards ? JSON.parse(savedRewards) : rewards))
+      } catch {
+        setActiveRewards(rewards)
+      }
+    }
+
+    loadRewards()
+    window.addEventListener('storage', loadRewards)
+
+    return () => window.removeEventListener('storage', loadRewards)
+  }, [])
 
   const handleSubmit = (values: FormValues) => {
     setVisitor(values)
@@ -34,9 +51,9 @@ export default function HomePage() {
     setReward(selectedReward)
     setStage('result')
     setStatus('saving')
-    setFeedback('Sending your reward details…')
+    setFeedback('Sending your reward details...')
 
-    const payload = {
+    const payload: LeadEntry = {
       name: visitor.name,
       phone: visitor.phone,
       skin_concern: visitor.skinConcern || 'Not specified',
@@ -60,6 +77,10 @@ export default function HomePage() {
 
       setStatus('success')
       setFeedback('Your reward has been recorded. Please show this message at the stall to claim it.')
+
+      const savedEntries = window.localStorage.getItem(entriesStorageKey)
+      const entries = savedEntries ? JSON.parse(savedEntries) : []
+      window.localStorage.setItem(entriesStorageKey, JSON.stringify([payload, ...entries].slice(0, 500)))
     } catch (error) {
       setStatus('error')
       setFeedback(`Could not send your entry. ${error instanceof Error ? error.message : ''}`)
@@ -82,13 +103,11 @@ export default function HomePage() {
             <section className="space-y-6">
               <div className="flex items-start gap-4">
                 <div className="rounded-3xl bg-brand-50 p-3 text-brand-700 ring-1 ring-brand-100">
-                  <div className="text-xl font-semibold">🌿</div>
+                  <div className="text-xl font-semibold">BH</div>
                 </div>
                 <div>
                   <p className="text-sm uppercase tracking-[0.3em] text-brand-600">Banu Herbals</p>
-                  <h1 className="mt-2 text-4xl font-bold tracking-tight text-brand-900 sm:text-5xl">
-                    {heading}
-                  </h1>
+                  <h1 className="mt-2 text-4xl font-bold tracking-tight text-brand-900 sm:text-5xl">{heading}</h1>
                 </div>
               </div>
 
@@ -111,7 +130,7 @@ export default function HomePage() {
                     exit={{ opacity: 0, y: -12 }}
                     transition={{ duration: 0.35 }}
                   >
-                    <SpinWheel rewards={rewards} onComplete={handleSpinComplete} />
+                    <SpinWheel rewards={activeRewards} onComplete={handleSpinComplete} />
                   </motion.div>
                 ) : (
                   <motion.div

@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
+import { useEffect, useMemo, useState } from 'react'
 import type { Reward } from '../lib/rewards'
 
 type SpinWheelProps = {
@@ -19,7 +19,7 @@ type WheelSegment = {
 const mobileLabelMap: Record<string, string> = {
   'Free Lipbalm': 'Lipbalm',
   'Free Soap Sample': 'Soap Sample',
-  '₹30 OFF': '₹30 OFF',
+  'Rs.30 OFF': 'Rs.30 OFF',
   'Buy 2 Get 1': 'Buy 2 Get 1',
   'Surprise Gift': 'Surprise',
   'Expo Combo Offer': 'Combo',
@@ -70,10 +70,10 @@ export default function SpinWheel({ rewards, onComplete }: SpinWheelProps) {
   }
 
   const spin = () => {
-    if (spinning) return
+    if (spinning || !segments.length) return
     const winner = chooseWinner()
     setWinningReward(winner.reward)
-    setMessage('Spinning…')
+    setMessage('Spinning...')
     setSpinning(true)
     const target = 360 * 9 + (360 - winner.mid)
     setRotation(target)
@@ -100,9 +100,9 @@ export default function SpinWheel({ rewards, onComplete }: SpinWheelProps) {
         <div className="relative mx-auto flex h-[300px] w-[300px] items-center justify-center sm:h-[440px] sm:w-[440px]">
           <div className="absolute inset-0 rounded-full border-[12px] border-slate-950 bg-slate-950/5 sm:border-[16px]" />
           <div className="absolute inset-3 rounded-full border-4 border-slate-950/80 bg-slate-100/90 shadow-inner shadow-slate-900/10 sm:inset-4" />
-          <div className="absolute top-0 left-1/2 z-20 -translate-x-1/2 -translate-y-3 flex flex-col items-center gap-1">
-            <div className="h-0 w-0 border-x-[16px] border-x-transparent border-b-[30px] border-b-rose-600 shadow-2xl shadow-rose-700/30 sm:border-x-[20px] sm:border-b-[36px]" />
-            <div className="h-4 w-4 rounded-full bg-slate-950 border-2 border-white sm:h-5 sm:w-5" />
+          <div className="absolute left-1/2 top-0 z-20 flex -translate-x-1/2 -translate-y-3 flex-col items-center gap-1">
+            <div className="h-0 w-0 border-x-[16px] border-b-[30px] border-x-transparent border-b-rose-600 shadow-2xl shadow-rose-700/30 sm:border-x-[20px] sm:border-b-[36px]" />
+            <div className="h-4 w-4 rounded-full border-2 border-white bg-slate-950 sm:h-5 sm:w-5" />
           </div>
           <div className="relative flex h-[260px] w-[260px] items-center justify-center rounded-full border-[12px] border-slate-950/90 bg-white shadow-2xl shadow-slate-950/10 sm:h-[370px] sm:w-[370px] sm:border-[16px]">
             <div
@@ -133,9 +133,8 @@ export default function SpinWheel({ rewards, onComplete }: SpinWheelProps) {
                 const mobileLabel = mobileLabelMap[segment.reward.label] || segment.reward.label
 
                 return (
-                  <div key={segment.reward.label} className="contents">
+                  <div key={`${segment.reward.label}-${segment.start}`} className="contents">
                     <div
-                      key={`${segment.reward.label}-mobile`}
                       className="absolute left-1/2 top-1/2 z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center rounded-md bg-white/85 px-1 py-0.5 text-center shadow-sm ring-1 ring-slate-950/10 backdrop-blur-sm sm:hidden"
                       style={{
                         width: mobileLabelWidth,
@@ -150,7 +149,6 @@ export default function SpinWheel({ rewards, onComplete }: SpinWheelProps) {
                       </span>
                     </div>
                     <div
-                      key={`${segment.reward.label}-desktop`}
                       className="absolute left-1/2 top-1/2 z-10 hidden -translate-x-1/2 -translate-y-1/2 flex-col items-center rounded-xl bg-white/85 px-2 py-1 text-center shadow-sm ring-1 ring-slate-950/10 backdrop-blur-sm sm:flex"
                       style={{
                         width: desktopLabelWidth,
