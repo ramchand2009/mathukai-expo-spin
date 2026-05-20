@@ -2,13 +2,21 @@ import { NextResponse } from 'next/server'
 import { getStoredRewards, hasDatabase, replaceStoredRewards } from '../../../lib/db'
 import { normalizeRewards, rewards } from '../../../lib/rewards'
 
-export async function GET() {
+export async function GET(request: Request) {
+  const url = new URL(request.url)
+  const includeSoldOut = url.searchParams.get('scope') === 'dashboard'
+
   if (!hasDatabase()) {
     return NextResponse.json({ rewards, source: 'default' })
   }
 
   try {
-    const storedRewards = normalizeRewards(await getStoredRewards())
+    const allRewards = await getStoredRewards({ includeSoldOut: true })
+    if (!allRewards.length) {
+      return NextResponse.json({ rewards, source: 'default' })
+    }
+
+    const storedRewards = includeSoldOut ? normalizeRewards(allRewards) : await getStoredRewards()
     return NextResponse.json({ rewards: storedRewards, source: 'database' })
   } catch (error) {
     return NextResponse.json(

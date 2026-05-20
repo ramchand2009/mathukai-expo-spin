@@ -10,7 +10,7 @@ export type FormValues = {
 }
 
 type LeadFormProps = {
-  onSubmit: (values: FormValues) => void
+  onSubmit: (values: FormValues) => void | Promise<void>
 }
 
 const skinOptions = [

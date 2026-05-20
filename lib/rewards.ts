@@ -2,6 +2,8 @@ export type Reward = {
   label: string
   probability: number
   color: string
+  inventoryLimit?: number | null
+  claimedCount?: number
 }
 
 export type LeadEntry = {
@@ -54,21 +56,29 @@ export function normalizeRewards(candidate: unknown): Reward[] {
   if (!Array.isArray(candidate)) return rewards
 
   const normalized = candidate
-    .map(item => {
+    .map<Reward | null>(item => {
       if (!item || typeof item !== 'object') return null
 
       const reward = item as Partial<Reward>
       const label = typeof reward.label === 'string' ? reward.label.trim() : ''
       const probability = Number(reward.probability)
+      const rawInventoryLimit = (reward as { inventoryLimit?: unknown }).inventoryLimit
+      const inventoryLimit =
+        rawInventoryLimit === null || rawInventoryLimit === undefined || rawInventoryLimit === ''
+          ? null
+          : Number(rawInventoryLimit)
       const color =
         typeof reward.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(reward.color) ? reward.color : '#34d399'
 
       if (!label || !Number.isFinite(probability) || probability <= 0) return null
+      if (inventoryLimit !== null && (!Number.isFinite(inventoryLimit) || inventoryLimit < 0)) return null
 
       return {
         label,
         probability,
         color,
+        inventoryLimit,
+        claimedCount: Number(reward.claimedCount || 0),
       }
     })
     .filter((item): item is Reward => Boolean(item))

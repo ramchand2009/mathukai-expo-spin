@@ -29,9 +29,12 @@ export async function POST(request: Request) {
       console.log('DATABASE_URL not configured. Entry would be saved:', payload)
     }
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    const status = message.includes('already claimed') ? 409 : message.includes('claim limit') ? 410 : 500
+
     return NextResponse.json(
-      { error: 'Database save failed', details: error instanceof Error ? error.message : String(error) },
-      { status: 500 }
+      { error: message || 'Database save failed' },
+      { status }
     )
   }
 

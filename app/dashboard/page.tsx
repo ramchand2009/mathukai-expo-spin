@@ -8,6 +8,7 @@ const blankReward: Reward = {
   label: '',
   probability: 10,
   color: '#34d399',
+  inventoryLimit: null,
 }
 
 function csvValue(value: unknown) {
@@ -29,7 +30,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const loadRewards = async () => {
       try {
-        const response = await fetch('/api/offers', { cache: 'no-store' })
+        const response = await fetch('/api/offers?scope=dashboard', { cache: 'no-store' })
         if (!response.ok) throw new Error('Could not load offers')
         const body = await response.json()
         setDraftRewards(normalizeRewards(body.rewards))
@@ -72,9 +73,18 @@ export default function DashboardPage() {
       current.map((reward, rewardIndex) => {
         if (rewardIndex !== index) return reward
 
+        const nextValue =
+          field === 'probability'
+            ? Number(value)
+            : field === 'inventoryLimit'
+              ? value.trim() === ''
+                ? null
+                : Number(value)
+              : value
+
         return {
           ...reward,
-          [field]: field === 'probability' ? Number(value) : value,
+          [field]: nextValue,
         }
       })
     )
@@ -189,7 +199,7 @@ export default function DashboardPage() {
             <div>
               <h2 className="text-xl font-bold text-brand-900">Dynamic offers</h2>
               <p className="mt-1 text-sm text-brand-700">
-                Add offers and set their winning chance. Total configured chance: {totalChance}
+                Add offers, winning chance, and optional stock limit. Total configured chance: {totalChance}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -218,7 +228,7 @@ export default function DashboardPage() {
           <div className="mt-5 space-y-3">
             {draftRewards.map((reward, index) => (
               <div
-                className="grid gap-3 rounded-2xl border border-brand-100 bg-brand-50/60 p-4 sm:grid-cols-[1fr_120px_96px_auto] sm:items-end"
+                className="grid gap-3 rounded-2xl border border-brand-100 bg-brand-50/60 p-4 sm:grid-cols-[1fr_110px_140px_96px_auto] sm:items-end"
                 key={index}
               >
                 <label className="space-y-1">
@@ -239,6 +249,22 @@ export default function DashboardPage() {
                     value={reward.probability}
                     onChange={event => updateReward(index, 'probability', event.target.value)}
                   />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-600">Limit</span>
+                  <input
+                    className="w-full rounded-2xl border border-brand-200 bg-white px-4 py-3 text-sm outline-none ring-brand-400 transition focus:ring-2"
+                    min="0"
+                    placeholder="Unlimited"
+                    type="number"
+                    value={reward.inventoryLimit ?? ''}
+                    onChange={event => updateReward(index, 'inventoryLimit', event.target.value)}
+                  />
+                  {reward.inventoryLimit !== null && reward.inventoryLimit !== undefined && (
+                    <span className="block text-xs font-medium text-brand-700">
+                      Claimed: {reward.claimedCount || 0}/{reward.inventoryLimit}
+                    </span>
+                  )}
                 </label>
                 <label className="space-y-1">
                   <span className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-600">Color</span>
@@ -326,7 +352,7 @@ export default function DashboardPage() {
                 ) : (
                   <tr>
                     <td className="rounded-2xl bg-brand-50/70 px-3 py-6 text-center text-brand-700" colSpan={5}>
-                      No leads saved in this browser yet.
+                      No customer entries saved yet.
                     </td>
                   </tr>
                 )}

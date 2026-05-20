@@ -15,6 +15,7 @@ export default function HomePage() {
   const [activeRewards, setActiveRewards] = useState(rewards)
   const [status, setStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle')
   const [feedback, setFeedback] = useState<string>('')
+  const [formFeedback, setFormFeedback] = useState('')
 
   const heading = useMemo(() => {
     if (stage === 'form') return 'Spin & Win at Banu Herbals'
@@ -28,7 +29,7 @@ export default function HomePage() {
         const response = await fetch('/api/offers', { cache: 'no-store' })
         if (!response.ok) throw new Error('Could not load offers')
         const body = await response.json()
-        setActiveRewards(normalizeRewards(body.rewards))
+        setActiveRewards(Array.isArray(body.rewards) && body.rewards.length === 0 ? [] : normalizeRewards(body.rewards))
       } catch {
         try {
           const savedRewards = window.localStorage.getItem(rewardsStorageKey)
@@ -45,12 +46,32 @@ export default function HomePage() {
     return () => window.removeEventListener('storage', loadRewards)
   }, [])
 
-  const handleSubmit = (values: FormValues) => {
-    setVisitor(values)
-    setStage('spin')
-    setReward('')
-    setStatus('idle')
-    setFeedback('')
+  const handleSubmit = async (values: FormValues) => {
+    setFormFeedback('Checking your mobile number...')
+
+    try {
+      const response = await fetch(`/api/eligibility?phone=${encodeURIComponent(values.phone)}`, { cache: 'no-store' })
+      const body = await response.json().catch(() => null)
+
+      if (!response.ok || body?.eligible === false) {
+        setFormFeedback(body?.reason || 'This mobile number has already claimed a reward.')
+        return
+      }
+
+      if (!activeRewards.length) {
+        setFormFeedback('No rewards are currently available. Please ask the stall staff for help.')
+        return
+      }
+
+      setVisitor(values)
+      setStage('spin')
+      setReward('')
+      setStatus('idle')
+      setFeedback('')
+      setFormFeedback('')
+    } catch {
+      setFormFeedback('Could not check this mobile number. Please try again.')
+    }
   }
 
   const handleSpinComplete = async (selectedReward: string) => {
@@ -78,8 +99,8 @@ export default function HomePage() {
       })
 
       if (!response.ok) {
-        const errorBody = await response.text()
-        throw new Error(errorBody || 'Webhook request failed')
+        const errorBody = await response.json().catch(() => null)
+        throw new Error(errorBody?.error || 'Could not save your entry')
       }
 
       setStatus('success')
@@ -100,6 +121,7 @@ export default function HomePage() {
     setReward('')
     setStatus('idle')
     setFeedback('')
+    setFormFeedback('')
   }
 
   return (
@@ -128,6 +150,11 @@ export default function HomePage() {
                     transition={{ duration: 0.35 }}
                   >
                     <LeadForm onSubmit={handleSubmit} />
+                    {formFeedback && (
+                      <p className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 p-4 text-sm font-medium text-amber-900">
+                        {formFeedback}
+                      </p>
+                    )}
                   </motion.div>
                 ) : stage === 'spin' ? (
                   <motion.div

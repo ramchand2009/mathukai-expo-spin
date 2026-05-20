@@ -8,6 +8,8 @@ A responsive Next.js landing page for Banu Herbals visitors to scan, submit deta
 - Dashboard for dynamic spin wheel offers
 - Shared Postgres-backed offer configuration
 - Shared Postgres-backed customer and reward entries
+- Duplicate phone number prevention
+- Optional reward inventory limits
 - Smooth animations with Framer Motion
 - Configurable reward probabilities
 - WhatsApp opt-in capture
@@ -105,5 +107,7 @@ npm run start
 ## Notes
 
 - The dashboard saves offers and reads customer entries from Postgres when `DATABASE_URL` is configured.
+- Set an offer limit in `/dashboard` to stop that reward after the configured number of claims.
+- A mobile number can claim only once.
 - If `DATABASE_URL` is missing, the app falls back to default/browser-local offers for testing.
 - The app saves lead data to Postgres first, then also forwards it to n8n for WhatsApp messages and Meta tracking.
