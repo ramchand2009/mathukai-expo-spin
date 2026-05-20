@@ -19,6 +19,7 @@ export default function DashboardPage() {
   const [entries, setEntries] = useState<LeadEntry[]>([])
   const [message, setMessage] = useState('')
   const [saving, setSaving] = useState(false)
+  const [loadingEntries, setLoadingEntries] = useState(true)
 
   const totalChance = useMemo(
     () => draftRewards.reduce((sum, reward) => sum + Number(reward.probability || 0), 0),
@@ -44,12 +45,26 @@ export default function DashboardPage() {
 
     loadRewards()
 
-    try {
-      const savedEntries = window.localStorage.getItem(entriesStorageKey)
-      setEntries(savedEntries ? JSON.parse(savedEntries) : [])
-    } catch {
-      setEntries([])
+    const loadEntries = async () => {
+      setLoadingEntries(true)
+      try {
+        const response = await fetch('/api/entries', { cache: 'no-store' })
+        if (!response.ok) throw new Error('Could not load entries')
+        const body = await response.json()
+        setEntries(Array.isArray(body.entries) ? body.entries : [])
+      } catch {
+        try {
+          const savedEntries = window.localStorage.getItem(entriesStorageKey)
+          setEntries(savedEntries ? JSON.parse(savedEntries) : [])
+        } catch {
+          setEntries([])
+        }
+      } finally {
+        setLoadingEntries(false)
+      }
     }
+
+    loadEntries()
   }, [])
 
   const updateReward = (index: number, field: keyof Reward, value: string) => {
@@ -136,10 +151,21 @@ export default function DashboardPage() {
     URL.revokeObjectURL(url)
   }
 
-  const clearEntries = () => {
-    window.localStorage.removeItem(entriesStorageKey)
-    setEntries([])
-    setMessage('Dashboard leads cleared from this browser.')
+  const clearEntries = async () => {
+    try {
+      const response = await fetch('/api/entries', { method: 'DELETE' })
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null)
+        throw new Error(errorBody?.error || 'Could not clear database entries')
+      }
+      setEntries([])
+      window.localStorage.removeItem(entriesStorageKey)
+      setMessage('Lead entries cleared from the database.')
+    } catch (error) {
+      window.localStorage.removeItem(entriesStorageKey)
+      setEntries([])
+      setMessage(`Local leads cleared. ${error instanceof Error ? error.message : 'Database clear failed.'}`)
+    }
   }
 
   return (
@@ -244,20 +270,22 @@ export default function DashboardPage() {
         <section className="rounded-3xl border border-brand-200 bg-white p-5 shadow-xl shadow-brand-200/30 sm:p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-xl font-bold text-brand-900">Leads on this device</h2>
-              <p className="mt-1 text-sm text-brand-700">{entries.length} entries captured after successful submission.</p>
+              <h2 className="text-xl font-bold text-brand-900">Customer entries</h2>
+              <p className="mt-1 text-sm text-brand-700">
+                {loadingEntries ? 'Loading entries...' : `${entries.length} entries captured after successful submission.`}
+              </p>
             </div>
             <div className="flex flex-wrap gap-2">
               <button
                 className="rounded-full bg-brand-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:bg-brand-300"
-                disabled={!entries.length}
+                disabled={!entries.length || loadingEntries}
                 onClick={exportEntries}
               >
                 Export CSV
               </button>
               <button
                 className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={!entries.length}
+                disabled={!entries.length || loadingEntries}
                 onClick={clearEntries}
               >
                 Clear
@@ -277,7 +305,13 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {entries.length ? (
+                {loadingEntries ? (
+                  <tr>
+                    <td className="rounded-2xl bg-brand-50/70 px-3 py-6 text-center text-brand-700" colSpan={5}>
+                      Loading customer entries...
+                    </td>
+                  </tr>
+                ) : entries.length ? (
                   entries.slice(0, 25).map(entry => (
                     <tr className="bg-brand-50/70" key={`${entry.phone}-${entry.timestamp}`}>
                       <td className="rounded-l-2xl px-3 py-3 font-semibold text-brand-900">{entry.name}</td>

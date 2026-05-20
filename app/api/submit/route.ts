@@ -1,13 +1,42 @@
 import { NextResponse } from 'next/server'
+import { hasDatabase, saveLeadEntry } from '../../../lib/db'
+import type { LeadEntry } from '../../../lib/rewards'
+
+function normalizeEntry(payload: Partial<LeadEntry>): LeadEntry {
+  return {
+    name: String(payload.name || '').trim(),
+    phone: String(payload.phone || '').trim(),
+    skin_concern: String(payload.skin_concern || 'Not specified').trim(),
+    optin: Boolean(payload.optin),
+    reward: String(payload.reward || '').trim(),
+    source: String(payload.source || 'expo_spin').trim(),
+    timestamp: String(payload.timestamp || new Date().toISOString()),
+  }
+}
 
 export async function POST(request: Request) {
   const webhookUrl = process.env.N8N_WEBHOOK_URL
-  const payload = await request.json()
+  const payload = normalizeEntry(await request.json())
 
-  // If no webhook URL is set or it's a placeholder, just return success
+  if (!payload.name || !payload.phone || !payload.reward) {
+    return NextResponse.json({ error: 'Name, phone, and reward are required' }, { status: 400 })
+  }
+
+  try {
+    if (hasDatabase()) {
+      await saveLeadEntry(payload)
+    } else {
+      console.log('DATABASE_URL not configured. Entry would be saved:', payload)
+    }
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Database save failed', details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    )
+  }
+
   if (!webhookUrl || webhookUrl.includes('example.com') || webhookUrl.includes('YOUR_N8N')) {
-    console.log('Webhook URL not configured. Entry would be saved:', payload)
-    return NextResponse.json({ status: 'ok', message: 'Entry received. Webhook not configured yet.' })
+    return NextResponse.json({ status: 'ok', message: 'Entry saved. Webhook not configured yet.' })
   }
 
   try {
@@ -18,15 +47,17 @@ export async function POST(request: Request) {
     })
 
     const text = await response.text()
-    if (!response.ok) {
-      return NextResponse.json({ error: 'Webhook request failed', details: text }, { status: 500 })
-    }
 
-    return NextResponse.json({ status: 'ok', body: text })
+    return NextResponse.json({
+      status: 'ok',
+      webhook_status: response.ok ? 'sent' : 'failed',
+      webhook_body: text,
+    })
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Network request failed', details: error instanceof Error ? error.message : String(error) },
-      { status: 500 }
-    )
+    return NextResponse.json({
+      status: 'ok',
+      webhook_status: 'failed',
+      webhook_error: error instanceof Error ? error.message : String(error),
+    })
   }
 }

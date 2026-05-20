@@ -7,6 +7,7 @@ A responsive Next.js landing page for Banu Herbals visitors to scan, submit deta
 - Mobile-first spin wheel UI
 - Dashboard for dynamic spin wheel offers
 - Shared Postgres-backed offer configuration
+- Shared Postgres-backed customer and reward entries
 - Smooth animations with Framer Motion
 - Configurable reward probabilities
 - WhatsApp opt-in capture
@@ -96,12 +97,13 @@ npm run start
 - `app/` - Next.js App Router pages and layout
 - `components/` - reusable UI components
 - `app/api/offers/route.ts` - Postgres-backed dynamic offer endpoint
+- `app/api/entries/route.ts` - Postgres-backed customer entry list endpoint
 - `app/api/submit/route.ts` - webhook proxy endpoint
 - `lib/db.ts` - Postgres connection and offer persistence
 - `lib/rewards.ts` - default reward configuration and validation helpers
 
 ## Notes
 
-- The dashboard saves offers to Postgres when `DATABASE_URL` is configured.
+- The dashboard saves offers and reads customer entries from Postgres when `DATABASE_URL` is configured.
 - If `DATABASE_URL` is missing, the app falls back to default/browser-local offers for testing.
-- The app sends lead data to n8n and relies on n8n workflows for permanent lead storage, WhatsApp messages, and Meta tracking.
+- The app saves lead data to Postgres first, then also forwards it to n8n for WhatsApp messages and Meta tracking.

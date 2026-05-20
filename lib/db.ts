@@ -1,5 +1,5 @@
 import { Pool } from 'pg'
-import type { Reward } from './rewards'
+import type { LeadEntry, Reward } from './rewards'
 
 let pool: Pool | null = null
 
@@ -35,6 +35,25 @@ async function ensureOfferTable() {
       is_active boolean not null default true,
       created_at timestamptz not null default now(),
       updated_at timestamptz not null default now()
+    )
+  `)
+}
+
+async function ensureEntryTable() {
+  const client = getPool()
+  if (!client) throw new Error('DATABASE_URL is not configured')
+
+  await client.query(`
+    create table if not exists spin_wheel_entries (
+      id serial primary key,
+      name text not null,
+      phone text not null,
+      skin_concern text not null,
+      optin boolean not null default false,
+      reward text not null,
+      source text not null,
+      entry_timestamp timestamptz not null,
+      created_at timestamptz not null default now()
     )
   `)
 }
@@ -84,4 +103,62 @@ export async function replaceStoredRewards(rewards: Reward[]) {
   } finally {
     dbClient.release()
   }
+}
+
+export async function saveLeadEntry(entry: LeadEntry) {
+  await ensureEntryTable()
+
+  const client = getPool()
+  if (!client) throw new Error('DATABASE_URL is not configured')
+
+  await client.query(
+    `
+      insert into spin_wheel_entries (name, phone, skin_concern, optin, reward, source, entry_timestamp)
+      values ($1, $2, $3, $4, $5, $6, $7)
+    `,
+    [
+      entry.name,
+      entry.phone,
+      entry.skin_concern,
+      entry.optin,
+      entry.reward,
+      entry.source,
+      entry.timestamp,
+    ]
+  )
+}
+
+export async function getLeadEntries(limit = 500) {
+  await ensureEntryTable()
+
+  const client = getPool()
+  if (!client) throw new Error('DATABASE_URL is not configured')
+
+  const result = await client.query<LeadEntry>(
+    `
+      select
+        name,
+        phone,
+        skin_concern,
+        optin,
+        reward,
+        source,
+        entry_timestamp::text as timestamp
+      from spin_wheel_entries
+      order by entry_timestamp desc, id desc
+      limit $1
+    `,
+    [limit]
+  )
+
+  return result.rows
+}
+
+export async function clearLeadEntries() {
+  await ensureEntryTable()
+
+  const client = getPool()
+  if (!client) throw new Error('DATABASE_URL is not configured')
+
+  await client.query('delete from spin_wheel_entries')
 }
