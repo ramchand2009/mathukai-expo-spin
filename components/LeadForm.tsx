@@ -76,7 +76,7 @@ export default function LeadForm({ onSubmit }: LeadFormProps) {
       </div>
 
       <div className="space-y-3">
-        <label className="block text-sm font-semibold text-brand-800">Skin concern</label>
+        <label className="block text-sm font-semibold text-brand-800">Skin problems</label>
         <select
           value={form.skinConcern}
           onChange={event => handleChange('skinConcern', event.target.value)}
