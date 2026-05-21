@@ -63,6 +63,34 @@ export default function HomePage() {
         return
       }
 
+      setFormFeedback('Saving your details...')
+      const draftPayload: LeadEntry = {
+        name: values.name,
+        phone: values.phone,
+        skin_concern: values.skinConcern || 'Not specified',
+        optin: values.optin,
+        reward: '',
+        source: sourceTag,
+        timestamp: new Date().toISOString(),
+      }
+
+      const saveResponse = await fetch('/api/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(draftPayload),
+      })
+
+      if (!saveResponse.ok) {
+        const errorBody = await saveResponse.json().catch(() => null)
+        setFormFeedback(errorBody?.error || 'Could not save your details. Please try again.')
+        return
+      }
+
+      const savedEntries = window.localStorage.getItem(entriesStorageKey)
+      const entries = savedEntries ? JSON.parse(savedEntries) : []
+      const withoutCurrentPhone = entries.filter((entry: LeadEntry) => entry.phone !== draftPayload.phone)
+      window.localStorage.setItem(entriesStorageKey, JSON.stringify([draftPayload, ...withoutCurrentPhone].slice(0, 500)))
+
       setVisitor(values)
       setStage('spin')
       setReward('')
@@ -108,7 +136,8 @@ export default function HomePage() {
 
       const savedEntries = window.localStorage.getItem(entriesStorageKey)
       const entries = savedEntries ? JSON.parse(savedEntries) : []
-      window.localStorage.setItem(entriesStorageKey, JSON.stringify([payload, ...entries].slice(0, 500)))
+      const withoutCurrentPhone = entries.filter((entry: LeadEntry) => entry.phone !== payload.phone)
+      window.localStorage.setItem(entriesStorageKey, JSON.stringify([payload, ...withoutCurrentPhone].slice(0, 500)))
     } catch (error) {
       setStatus('error')
       setFeedback(`Could not send your entry. ${error instanceof Error ? error.message : ''}`)

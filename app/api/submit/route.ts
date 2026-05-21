@@ -18,8 +18,8 @@ export async function POST(request: Request) {
   const webhookUrl = process.env.N8N_WEBHOOK_URL
   const payload = normalizeEntry(await request.json())
 
-  if (!payload.name || !payload.phone || !payload.reward) {
-    return NextResponse.json({ error: 'Name, phone, and reward are required' }, { status: 400 })
+  if (!payload.name || !payload.phone) {
+    return NextResponse.json({ error: 'Name and phone are required' }, { status: 400 })
   }
 
   try {
@@ -36,6 +36,10 @@ export async function POST(request: Request) {
       { error: message || 'Database save failed' },
       { status }
     )
+  }
+
+  if (!payload.reward) {
+    return NextResponse.json({ status: 'ok', message: 'Lead details saved. Waiting for spin.' })
   }
 
   if (!webhookUrl || webhookUrl.includes('example.com') || webhookUrl.includes('YOUR_N8N')) {

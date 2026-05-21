@@ -142,8 +142,10 @@ export async function replaceStoredRewards(rewards: Reward[]) {
 }
 
 export async function saveLeadEntry(entry: LeadEntry) {
-  await ensureOfferTable()
   await ensureEntryTable()
+  if (entry.reward) {
+    await ensureOfferTable()
+  }
 
   const client = getPool()
   if (!client) throw new Error('DATABASE_URL is not configured')
@@ -153,15 +155,64 @@ export async function saveLeadEntry(entry: LeadEntry) {
   try {
     await dbClient.query('begin')
     await dbClient.query('select pg_advisory_xact_lock(hashtext($1))', [`phone:${entry.phone}`])
-    await dbClient.query('select pg_advisory_xact_lock(hashtext($1))', [`reward:${entry.reward}`])
+    if (entry.reward) {
+      await dbClient.query('select pg_advisory_xact_lock(hashtext($1))', [`reward:${entry.reward}`])
+    }
 
     const duplicateResult = await dbClient.query<{ exists: boolean }>(
-      'select exists(select 1 from spin_wheel_entries where phone = $1) as exists',
+      "select exists(select 1 from spin_wheel_entries where phone = $1 and reward <> '') as exists",
       [entry.phone]
     )
 
     if (duplicateResult.rows[0]?.exists) {
       throw new Error('This mobile number has already claimed a reward.')
+    }
+
+    if (!entry.reward) {
+      const existingDraft = await dbClient.query<{ id: number }>(
+        "select id from spin_wheel_entries where phone = $1 and reward = '' order by id desc limit 1",
+        [entry.phone]
+      )
+
+      if (existingDraft.rows[0]) {
+        await dbClient.query(
+          `
+            update spin_wheel_entries
+            set name = $1,
+              skin_concern = $2,
+              optin = $3,
+              source = $4,
+              entry_timestamp = $5
+            where id = $6
+          `,
+          [
+            entry.name,
+            entry.skin_concern,
+            entry.optin,
+            entry.source,
+            entry.timestamp,
+            existingDraft.rows[0].id,
+          ]
+        )
+      } else {
+        await dbClient.query(
+          `
+            insert into spin_wheel_entries (name, phone, skin_concern, optin, reward, source, entry_timestamp)
+            values ($1, $2, $3, $4, '', $5, $6)
+          `,
+          [
+            entry.name,
+            entry.phone,
+            entry.skin_concern,
+            entry.optin,
+            entry.source,
+            entry.timestamp,
+          ]
+        )
+      }
+
+      await dbClient.query('commit')
+      return
     }
 
     const inventoryResult = await dbClient.query<{ inventory_limit: number | null; claimed_count: number }>(
@@ -185,21 +236,50 @@ export async function saveLeadEntry(entry: LeadEntry) {
       }
     }
 
-    await dbClient.query(
+    const draftResult = await dbClient.query<{ id: number }>(
+      "select id from spin_wheel_entries where phone = $1 and reward = '' order by id desc limit 1",
+      [entry.phone]
+    )
+
+    if (draftResult.rows[0]) {
+      await dbClient.query(
+        `
+          update spin_wheel_entries
+          set name = $1,
+            skin_concern = $2,
+            optin = $3,
+            reward = $4,
+            source = $5,
+            entry_timestamp = $6
+          where id = $7
+        `,
+        [
+          entry.name,
+          entry.skin_concern,
+          entry.optin,
+          entry.reward,
+          entry.source,
+          entry.timestamp,
+          draftResult.rows[0].id,
+        ]
+      )
+    } else {
+      await dbClient.query(
       `
         insert into spin_wheel_entries (name, phone, skin_concern, optin, reward, source, entry_timestamp)
         values ($1, $2, $3, $4, $5, $6, $7)
       `,
-      [
-        entry.name,
-        entry.phone,
-        entry.skin_concern,
-        entry.optin,
-        entry.reward,
-        entry.source,
-        entry.timestamp,
-      ]
-    )
+        [
+          entry.name,
+          entry.phone,
+          entry.skin_concern,
+          entry.optin,
+          entry.reward,
+          entry.source,
+          entry.timestamp,
+        ]
+      )
+    }
 
     await dbClient.query('commit')
   } catch (error) {
@@ -217,7 +297,7 @@ export async function hasLeadEntryForPhone(phone: string) {
   if (!client) throw new Error('DATABASE_URL is not configured')
 
   const result = await client.query<{ exists: boolean }>(
-    'select exists(select 1 from spin_wheel_entries where phone = $1) as exists',
+    "select exists(select 1 from spin_wheel_entries where phone = $1 and reward <> '') as exists",
     [phone]
   )
 

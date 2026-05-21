@@ -176,7 +176,7 @@ export default function DashboardPage() {
       entry.name,
       entry.phone,
       entry.skin_concern,
-      entry.reward,
+      entry.reward || 'Not spun yet',
       claimStatusLabels[entry.claimStatus || 'pending'],
       entry.optin ? 'Yes' : 'No',
       entry.source,
@@ -409,7 +409,7 @@ export default function DashboardPage() {
             <div>
               <h2 className="text-xl font-bold text-brand-900">Customer entries</h2>
               <p className="mt-1 text-sm text-brand-700">
-                {loadingEntries ? 'Loading entries...' : `${entries.length} entries captured after successful submission.`}
+                {loadingEntries ? 'Loading entries...' : `${entries.length} entries captured.`}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -455,7 +455,7 @@ export default function DashboardPage() {
                       <td className="rounded-l-2xl px-3 py-3 font-semibold text-brand-900">{entry.name}</td>
                       <td className="px-3 py-3 text-brand-800">{entry.phone}</td>
                       <td className="px-3 py-3 text-brand-800">{entry.skin_concern}</td>
-                      <td className="px-3 py-3 font-semibold text-brand-900">{entry.reward}</td>
+                      <td className="px-3 py-3 font-semibold text-brand-900">{entry.reward || 'Not spun yet'}</td>
                       <td className="px-3 py-3">
                         <select
                           className="rounded-2xl border border-brand-200 bg-white px-3 py-2 text-sm font-semibold text-brand-800 outline-none ring-brand-400 transition focus:ring-2"
