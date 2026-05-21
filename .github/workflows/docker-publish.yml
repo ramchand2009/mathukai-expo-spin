@@ -31,8 +31,12 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t ghcr.io/${{ github.repository }}/mathukai-expo-spin:latest .
+          docker build \
+            -t ghcr.io/${{ github.repository }}:latest \
+            -t ghcr.io/${{ github.repository }}/mathukai-expo-spin:latest \
+            .
 
-      - name: Push Docker image
+      - name: Push Docker images
         run: |
+          docker push ghcr.io/${{ github.repository }}:latest
           docker push ghcr.io/${{ github.repository }}/mathukai-expo-spin:latest
