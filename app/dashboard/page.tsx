@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { entriesStorageKey, LeadEntry, normalizeRewards, Reward, rewards, rewardsStorageKey } from '../../lib/rewards'
 
 const blankReward: Reward = {
@@ -19,6 +19,8 @@ const claimStatusLabels: Record<NonNullable<LeadEntry['claimStatus']>, string> =
   cancelled: 'Cancelled',
 }
 
+const dashboardRefreshIntervalMs = 5000
+
 function csvValue(value: unknown) {
   return `"${String(value ?? '').replace(/"/g, '""')}"`
 }
@@ -29,6 +31,11 @@ export default function DashboardPage() {
   const [message, setMessage] = useState('')
   const [saving, setSaving] = useState(false)
   const [loadingEntries, setLoadingEntries] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [refreshError, setRefreshError] = useState('')
+  const [hasUnsavedRewardChanges, setHasUnsavedRewardChanges] = useState(false)
+  const hasUnsavedRewardChangesRef = useRef(false)
 
   const totalChance = useMemo(
     () => draftRewards.reduce((sum, reward) => sum + Number(reward.probability || 0), 0),
@@ -57,13 +64,16 @@ export default function DashboardPage() {
     }
   }, [draftRewards, entries])
 
-  useEffect(() => {
-    const loadRewards = async () => {
+  const loadRewards = useCallback(
+    async (options?: { allowDraftOverwrite?: boolean }) => {
+      if (hasUnsavedRewardChangesRef.current && !options?.allowDraftOverwrite) return
+
       try {
         const response = await fetch('/api/offers?scope=dashboard', { cache: 'no-store' })
         if (!response.ok) throw new Error('Could not load offers')
         const body = await response.json()
         setDraftRewards(normalizeRewards(body.rewards))
+        setRefreshError('')
       } catch {
         try {
           const savedRewards = window.localStorage.getItem(rewardsStorageKey)
@@ -72,33 +82,80 @@ export default function DashboardPage() {
           setDraftRewards(rewards)
         }
       }
-    }
+    },
+    []
+  )
 
-    loadRewards()
+  const loadEntries = useCallback(async (options?: { showLoading?: boolean }) => {
+    if (options?.showLoading) setLoadingEntries(true)
 
-    const loadEntries = async () => {
-      setLoadingEntries(true)
+    try {
+      const response = await fetch('/api/entries', { cache: 'no-store' })
+      if (!response.ok) throw new Error('Could not load entries')
+      const body = await response.json()
+      setEntries(Array.isArray(body.entries) ? body.entries : [])
+      setRefreshError('')
+    } catch (error) {
+      setRefreshError(error instanceof Error ? error.message : 'Could not refresh dashboard data.')
       try {
-        const response = await fetch('/api/entries', { cache: 'no-store' })
-        if (!response.ok) throw new Error('Could not load entries')
-        const body = await response.json()
-        setEntries(Array.isArray(body.entries) ? body.entries : [])
+        const savedEntries = window.localStorage.getItem(entriesStorageKey)
+        setEntries(savedEntries ? JSON.parse(savedEntries) : [])
       } catch {
-        try {
-          const savedEntries = window.localStorage.getItem(entriesStorageKey)
-          setEntries(savedEntries ? JSON.parse(savedEntries) : [])
-        } catch {
-          setEntries([])
-        }
-      } finally {
-        setLoadingEntries(false)
+        setEntries([])
+      }
+    } finally {
+      if (options?.showLoading) setLoadingEntries(false)
+    }
+  }, [])
+
+  const refreshDashboard = useCallback(
+    async (options?: { showLoading?: boolean; allowDraftOverwrite?: boolean }) => {
+      setRefreshing(true)
+      await Promise.all([
+        loadRewards({ allowDraftOverwrite: options?.allowDraftOverwrite }),
+        loadEntries({ showLoading: options?.showLoading }),
+      ])
+      setLastUpdated(new Date())
+      setRefreshing(false)
+    },
+    [loadEntries, loadRewards]
+  )
+
+  useEffect(() => {
+    refreshDashboard({ showLoading: true, allowDraftOverwrite: true })
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        refreshDashboard()
+      }
+    }, dashboardRefreshIntervalMs)
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshDashboard()
       }
     }
 
-    loadEntries()
-  }, [])
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      window.clearInterval(intervalId)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [refreshDashboard])
+
+  const setRewardDraftDirty = () => {
+    hasUnsavedRewardChangesRef.current = true
+    setHasUnsavedRewardChanges(true)
+  }
+
+  const setRewardDraftClean = () => {
+    hasUnsavedRewardChangesRef.current = false
+    setHasUnsavedRewardChanges(false)
+  }
 
   const updateReward = (index: number, field: keyof Reward, value: string) => {
+    setRewardDraftDirty()
     setDraftRewards(current =>
       current.map((reward, rewardIndex) => {
         if (rewardIndex !== index) return reward
@@ -122,16 +179,19 @@ export default function DashboardPage() {
   }
 
   const addReward = () => {
+    setRewardDraftDirty()
     setDraftRewards(current => [...current, { ...blankReward }])
     setMessage('')
   }
 
   const removeReward = (index: number) => {
+    setRewardDraftDirty()
     setDraftRewards(current => current.filter((_, rewardIndex) => rewardIndex !== index))
     setMessage('')
   }
 
   const resetRewards = async () => {
+    setRewardDraftDirty()
     setDraftRewards(rewards)
     window.localStorage.setItem(rewardsStorageKey, JSON.stringify(rewards))
     setMessage('Default offers restored. Click Save offers to publish them to all devices.')
@@ -158,10 +218,12 @@ export default function DashboardPage() {
       const savedRewards = normalizeRewards(body.rewards)
       window.localStorage.setItem(rewardsStorageKey, JSON.stringify(savedRewards))
       setDraftRewards(savedRewards)
+      setRewardDraftClean()
       setMessage('Offers saved globally. Mobile and desktop will load this latest wheel.')
     } catch (error) {
       window.localStorage.setItem(rewardsStorageKey, JSON.stringify(normalized))
       setDraftRewards(normalized)
+      setRewardDraftClean()
       setMessage(
         `Saved in this browser only. ${error instanceof Error ? error.message : 'Database save failed.'}`
       )
@@ -254,6 +316,26 @@ export default function DashboardPage() {
             Open spin wheel
           </Link>
         </header>
+
+        <section className="flex flex-col gap-3 rounded-3xl border border-brand-200 bg-white p-4 shadow-lg shadow-brand-200/20 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-brand-900">
+              {refreshing ? 'Refreshing live dashboard...' : 'Live dashboard refresh is on'}
+            </p>
+            <p className="mt-1 text-xs text-brand-700">
+              {lastUpdated ? `Last updated ${lastUpdated.toLocaleTimeString()}` : 'Waiting for first refresh.'}
+              {hasUnsavedRewardChanges ? ' Offer edits are paused from auto-refresh until saved.' : ''}
+            </p>
+            {refreshError && <p className="mt-1 text-xs font-semibold text-red-700">{refreshError}</p>}
+          </div>
+          <button
+            className="inline-flex items-center justify-center rounded-full border border-brand-700 bg-white px-4 py-2 text-sm font-semibold text-brand-700 transition hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={refreshing}
+            onClick={() => refreshDashboard({ showLoading: true })}
+          >
+            {refreshing ? 'Refreshing...' : 'Refresh now'}
+          </button>
+        </section>
 
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-3xl border border-brand-200 bg-white p-5 shadow-lg shadow-brand-200/20">
